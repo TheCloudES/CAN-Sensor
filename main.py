@@ -321,7 +321,7 @@ while True:
         velocity = (lastAvgDist - sumdistance/sampletaken)/timeDiff/100000;
         lastAvgDist = sumdistance/sampletaken;
         # encode all data as a JSON - manually to save memory
-        payload = "{\"accel\" : {}, \"warn\" : {}, \"distance\" : {} , \"Vapproach\": {}}".format((sumaccel/samples), accelWarn, lastAvgDist, velocity)
+        payload = "{{\"accel\" : {}, \"warn\" : {}, \"distance\" : {} , \"Vapproach\": {} }}".format((sumaccel/samples), accelWarn, lastAvgDist, velocity)
         # push to MQTT
         if mqttConnected:
             client.publish(mqtt_topic, payload)
