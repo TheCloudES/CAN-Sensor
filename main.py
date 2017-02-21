@@ -10,7 +10,6 @@ import ads1x15
 import network
 import time
 import math
-import ujson
 from umqtt.simple import MQTTClient
 from micropython import const
 
@@ -65,6 +64,7 @@ def combineBytes(data):
     return output
 
 def readAccel():
+	#read acceleration values for x,y,z
     i2c.readfrom_mem_into(LIS3DH_ADDR, LIS3DH_REG_OUT, accel_reg_buf)
     accel_x = combineBytes(accel_reg_buf[0:2])
     accel_y = combineBytes(accel_reg_buf[2:4])
@@ -82,12 +82,14 @@ def setUpAccel():
     return True;
 
 def readDistance():
+	#read distance from adc
     try:
         distance = 0.2*adc.read(0);
     except:
+		#return error if unable to read from adc
         print('Error: cannot read adc - check i2c connection')
         distance = 5000
-        
+    #eliminates noise that causes readings to go beyond sensor's range
     if distance > 5000:
         distance = 5000;
     return distance
@@ -96,6 +98,7 @@ def readDistance():
 Set-up outputs for LED and Buzzer
 """
 class ledCtrl:
+	#set LED outputs-red,green,yellow,purple,cyan,blinking
     def __init__(self):
         self.pinLED_Red = machine.Pin(ledPinRed, machine.Pin.OUT)
         self.pinLED_Green = machine.Pin(ledPinGreen, machine.Pin.OUT)
@@ -133,6 +136,7 @@ class ledCtrl:
             self.blinkTimer.init(period=p, mode=Timer.PERIODIC, callback=lambda t:self.toggle())
 
 class buzzCtrl:
+	#set buzzer output-frequency,duration
     def __init__(self):
         self.pin_Buzz = machine.PWM(machine.Pin(buzzPin, machine.Pin.OUT))
         self.pin_Buzz.duty(0)
@@ -156,6 +160,7 @@ class buzzCtrl:
         
 
 led = ledCtrl();
+#set LED purple while device configuring
 led.purple();
 buzz = buzzCtrl();
 
@@ -165,7 +170,7 @@ buzz = buzzCtrl();
 Set up I2C
 """
 i2c = machine.I2C(scl=machine.Pin(5), sda=machine.Pin(4), freq=100000)
-print('Devices attaches:');
+print('Devices attached:');
 print(i2c.scan())
 
 #Set up ADC
@@ -196,6 +201,7 @@ ap_if.active(False)
 """
 Set-up MQTT
 """
+#set LED to cyan while connecting to network
 led.cyan();
 client = MQTTClient(machine.unique_id(),mqtt_server)
 try:
@@ -235,41 +241,52 @@ while True:
     buzz.off()
     
     if distance < 500:
+	#LED set to red for distances <1.5m
         led.red();
+		#LED blinking and buzzing on when cycle turning towards object <50cm
         if accelWarn:
             led.setBlink(200);
             if toggle:
+				#high frequency buzzing
                 buzz.high()
             else:
+				#low frequency buzzing
                 buzz.low()
         else:
+		#LED blinking and low frequency buzzing object <50cm
             led.setBlink(300);
             buzz.low()
             
     elif distance < 1000:
         led.red();
         if accelWarn:
+			#LED blinking and buzzing on when cycle turning towards object <1m
             led.setBlink(200);
             if toggle:
                 buzz.high()
             else:
                 buzz.low()
-        else:            
+        else: 
+			#LED blinking on when object <1m
             led.setBlink(500);
     elif distance < 1500:
         led.red();
         
         if accelWarn:
+		#LED blinking with more delay and buzzing on when cycle turning towards object <1.5m
             led.setBlink(400);
             if toggle:
                 buzz.high()
             else:
                 buzz.low()
         else:
+		#no LED blinking if object>1.5m
             led.setBlink(0)
     elif distance < 2000:
+		#set LED amber for objects<2m
         led.amber();
         if accelWarn:
+		#LED blinking amber with more delay and buzzing on when cycle turning towards object <2m
             led.setBlink(400);
             if toggle:
                 buzz.high()
@@ -284,13 +301,16 @@ while True:
         else:
             led.setBlink(0)
     else:
+	#set LED green for objects>2m
         led.green();
         led.setBlink(0)
 
     #Crash detection
     if abs(accel_z) > accelz_threshold:
+		#set LED purple to indicate crash
         led.purple();
         led.setBlink(500);
+		#send crash information to server
         client.publish(mqtt_topic, b"crash", True);
         timer.sleep_ms(5000);
     
@@ -300,8 +320,8 @@ while True:
         # Find the delta of distance and divide by 100 for m and 1000 and ms->sec
         velocity = (lastAvgDist - sumdistance/sampletaken)/timeDiff/100000;
         lastAvgDist = sumdistance/sampletaken;
-        # encode all data as a JSON
-        payload = ujson.dumps({"accel" : (sumaccel/samples), "warn" : accelWarn, "distance" : (lastAvgDist/100), "Vapproach" : min(0,velocity)})
+        # encode all data as a JSON - manually to save memory
+        payload = "{\"accel\" : {}, \"warn\" : {}, \"distance\" : {} , \"Vapproach\": {}}".format((sumaccel/samples), accelWarn, lastAvgDist, velocity)
         # push to MQTT
         if mqttConnected:
             client.publish(mqtt_topic, payload)
@@ -312,4 +332,9 @@ while True:
         last_mqtt = time.ticks_ms()
         
     timer.sleep_ms(150);
-   
+
+"""
+Note: To ensure smooth running on ESP8266, use MicroPython Firmware with expanded heap of 35KB.
+See https://gerfficient.com/2016/10/19/fix-to-micropythons-memory-allocation-problem-on-esp8266/
+"""
+
