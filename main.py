@@ -201,7 +201,8 @@ client = MQTTClient(machine.unique_id(),mqtt_server)
 try:
     client.connect()
     client.publish(mqtt_topic,bytes(data,'utf-8'))
-    mqttConnected except:
+    mqttConnected = True;
+except:
     print('cannot connect to MQTT')
     
 """
