@@ -312,4 +312,9 @@ while True:
         last_mqtt = time.ticks_ms()
         
     timer.sleep_ms(150);
-   
+
+"""
+Note: To ensure smooth running on ESP8266, use MicroPython Firmware with expanded heap of 35KB.
+See https://gerfficient.com/2016/10/19/fix-to-micropythons-memory-allocation-problem-on-esp8266/
+"""
+
