@@ -1,3 +1,11 @@
+"""
+Provided by Adafruit
+
+Library to read the ADC on the I2C channel.
+
+"""
+
+
 import ustruct
 import time
 
